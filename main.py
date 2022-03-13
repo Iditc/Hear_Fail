@@ -8,8 +8,8 @@ import numpy as np
 
 
 def read_file(file_name):
-    df = pd.read_csv(file_name)
-    return df
+    read_df = pd.read_csv(file_name)
+    return read_df
 
 
 def xy_plot(df):
