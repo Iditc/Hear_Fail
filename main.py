@@ -4,6 +4,11 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn import preprocessing
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import precision_score
 import numpy as np
 
 
@@ -21,14 +26,24 @@ def xy_plot(df):
 
 
 
+
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     df = read_file('data/heart_failure_clinical_records_dataset.csv')
+    print(df.columns)
     women_df = df[df['sex'] == 0]
     men_df = df[df['sex'] == 0]
+    y = df[['DEATH_EVENT']].copy()
+    X = df.drop(['DEATH_EVENT'], axis=1)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
+    clf = RandomForestClassifier(max_depth=2, random_state=0)
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
+    tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+    precision = precision_score(y_test, y_pred, average='weighted')
     xy_plot(women_df)
     xy_plot(men_df)
-    print(df.columns)
-    print ('hi')
+
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
