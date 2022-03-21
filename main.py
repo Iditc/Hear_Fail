@@ -45,15 +45,17 @@ def cm_display(y_test, y_pred):
     cm_display = ConfusionMatrixDisplay(cm).plot()
 
 
-def roc(X_test, y_test, clf):
+def roc_auc(X_test, y_test, clf):
     # define metrics
     y_pred_proba = clf.predict_proba(X_test)[::, 1]
     fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
-
+    auc = roc_auc_score(y_test, y_pred_proba)
     # create ROC curve
+    plt.plot(fpr, tpr, label="AUC=" + str(auc))
     plt.plot(fpr, tpr)
     plt.ylabel('True Positive Rate')
     plt.xlabel('False Positive Rate')
+    plt.legend(loc=4)
     plt.show()
 
 
@@ -68,7 +70,7 @@ if __name__ == '__main__':
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
     clf = train_randomforestclassifier(X_train, X_test, y_train, y_test)
     y_pred = clf.predict(X_test)
-    roc(X_test, y_test, clf)
+    roc_auc(X_test, y_test, clf)
     metrics_scoring(y_test, y_pred)
     cm_display(y_test, y_pred)
 
