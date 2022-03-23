@@ -95,20 +95,33 @@ def change_threshold(X_test, y_test, clf):
     return y_pred
 
 
-def creatinine_th(df):
-    df['df_th_h'] = df['creatinine_phosphokinase'].apply(lambda x: 1 if x >= 308 else 0)
-    df['df_th_l'] = df['creatinine_phosphokinase'].apply(lambda x: 1 if 39 >= x else 0)
+def creatinine_th(df, threshold_h, threshold_l):
+    df['df_th_h'] = df['creatinine_phosphokinase'].apply(lambda x: 1 if x >= threshold_h else 0)
+    df['df_th_l'] = df['creatinine_phosphokinase'].apply(lambda x: 1 if threshold_l >= x else 0)
     return df
+
+
+# def creatinine_th(df, threshold_h, threshold_l):
+#     df['df_th_h'] = df['creatinine_phosphokinase'].apply(lambda x: 1 if x >= threshold_h else 0)
+#     df['df_th_l'] = df['creatinine_phosphokinase'].apply(lambda x: 1 if threshold_l >= x else 0)
+#     return df
+
+
+def feature_generation(df):
+    women_df = df[df['sex'] == 0]
+    men_df = df[df['sex'] == 1]
+    men_df = creatinine_th(men_df, threshold_h=308, threshold_l=39)
+    women_df = creatinine_th(women_df, threshold_h=192, threshold_l=26)
+    df_all = men_df.append(women_df)
+    return df_all
 
 
 if __name__ == '__main__':
     df_read = read_file('data/heart_failure_clinical_records_dataset.csv')
     print(df_read.columns)
-    women_df = df_read[df_read['sex'] == 0]
-    men_df = df_read[df_read['sex'] == 0]
-    men_df = creatinine_th(men_df)
-    y = df_read[['DEATH_EVENT']].copy()
-    X = df_read.drop(['DEATH_EVENT'], axis=1)
+    df_all = feature_generation(df_read)
+    y = df_all[['DEATH_EVENT']].copy()
+    X = df_all.drop(['DEATH_EVENT'], axis=1)
     class_names = ['DEATH_EVENT', 'No_DEATH']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
     # clf = train_randomforest_classifier(X_train, y_train)
