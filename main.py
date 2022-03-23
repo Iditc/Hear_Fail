@@ -9,9 +9,10 @@ from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, roc_curve, auc, roc_auc_score, ConfusionMatrixDisplay
-from sklearn.metrics import precision_score, f1_score, recall_score
+from sklearn.metrics import precision_score, f1_score, recall_score, accuracy_score
 from sklearn.ensemble import GradientBoostingClassifier
 from matplotlib import pyplot
+import shap
 import numpy as np
 
 
@@ -44,7 +45,8 @@ def metrics_scoring(y_test, y_pred):
     precision = precision_score(y_test, y_pred, average='weighted')
     f1 = f1_score(y_test, y_pred, average='weighted')
     recall = recall_score(y_test, y_pred, average='weighted')
-    return precision
+    accuracy = accuracy_score(y_test, y_pred)
+    return precision, accuracy
 
 
 def cm_display(y_test, y_pred):
@@ -96,15 +98,32 @@ def change_threshold(X_test, y_test, clf):
 
 
 def creatinine_th(df, threshold_h, threshold_l):
-    df['df_th_h'] = df['creatinine_phosphokinase'].apply(lambda x: 1 if x >= threshold_h else 0)
-    df['df_th_l'] = df['creatinine_phosphokinase'].apply(lambda x: 1 if threshold_l >= x else 0)
+    df['creatinine_th_h'] = df['creatinine_phosphokinase'].apply(lambda x: 1 if x >= threshold_h else 0)
+    df['creatinine_th_l'] = df['creatinine_phosphokinase'].apply(lambda x: 1 if threshold_l >= x else 0)
     return df
 
 
-# def creatinine_th(df, threshold_h, threshold_l):
-#     df['df_th_h'] = df['creatinine_phosphokinase'].apply(lambda x: 1 if x >= threshold_h else 0)
-#     df['df_th_l'] = df['creatinine_phosphokinase'].apply(lambda x: 1 if threshold_l >= x else 0)
-#     return df
+def ejection_fraction_th(df, threshold):
+    df['ejection_fraction_th'] = df['ejection_fraction'].apply(lambda x: 1 if x >= threshold else 0)
+    return df
+
+
+def serum_sodium_th(df, threshold_h, threshold_l):
+    df['serum_sodium_th_h'] = df['serum_sodium'].apply(lambda x: 1 if x >= threshold_h else 0)
+    df['serum_sodium_th_l'] = df['serum_sodium'].apply(lambda x: 1 if threshold_l >= x else 0)
+    return df
+
+
+def platelets_th(df, threshold_h, threshold_l):
+    df['thrombocytosis'] = df['platelets'].apply(lambda x: 1 if x >= threshold_h else 0)
+    df['thrombocytopenia'] = df['platelets'].apply(lambda x: 1 if threshold_l >= x else 0)
+    return df
+
+
+def serum_creatinine_th(df, threshold_h, threshold_l):
+    df['serum_creatinine_th_h'] = df['serum_creatinine'].apply(lambda x: 1 if x >= threshold_h else 0)
+    df['serum_creatinine_th_l'] = df['serum_creatinine'].apply(lambda x: 1 if threshold_l >= x else 0)
+    return df
 
 
 def feature_generation(df):
@@ -112,9 +131,23 @@ def feature_generation(df):
     men_df = df[df['sex'] == 1]
     men_df = creatinine_th(men_df, threshold_h=308, threshold_l=39)
     women_df = creatinine_th(women_df, threshold_h=192, threshold_l=26)
-    df_all = men_df.append(women_df)
-    return df_all
+    men_df = serum_creatinine_th(men_df, threshold_h=1.35, threshold_l=0.74)
+    women_df = serum_creatinine_th(women_df, threshold_h=1.04, threshold_l=0.59)
+    all = men_df.append(women_df)
+    all = ejection_fraction_th(all, threshold=40)
+    all = platelets_th(all, threshold_h=450000, threshold_l=150000)
+    all = serum_sodium_th(all, threshold_h=135, threshold_l=145)
+    return all
 
+
+def predict(X_test, y_test, clf):
+    y_pred = change_threshold(X_test, y_test, clf)
+    precision = metrics_scoring(y_test, y_pred)
+    return precision
+
+
+# def feature_selection(df_all):
+#     df_all =
 
 if __name__ == '__main__':
     df_read = read_file('data/heart_failure_clinical_records_dataset.csv')
@@ -126,17 +159,30 @@ if __name__ == '__main__':
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
     # clf = train_randomforest_classifier(X_train, y_train)
     clf = train_gradientboosting_classifier(X_train, y_train)
+    precision_test, accuracy_test = predict(X_test, y_test, clf)
+    precision_train, accuracy_train = predict(X_train, y_train, clf)
+    print('precision:', precision_test)
+    print('precision_t:', precision_train)
+    print('accuracy:', accuracy_test)
+    print('accuracy_t:', accuracy_train)
+    # compute SHAP values
+    explainer = shap.TreeExplainer(clf)
+    shap_values = explainer.shap_values(X)
+    shap.summary_plot(shap_values, X.values, plot_type="bar", class_names=class_names, feature_names=X.columns, max_display=15)
+    #shap.summary_plot(shap_values, X.values, feature_names=X.columns, max_display=11)
+
+
+
     y_pred = clf.predict(X_test)
+    y_pred_t = clf.predict(X_train)
     precision = metrics_scoring(y_test, y_pred)
+    precision_t = metrics_scoring(y_train, y_pred_t)
     print('precision:', precision)
+    print('precision_t:', precision_t)
     y_pred = change_threshold(X_test, y_test, clf)
     precision = metrics_scoring(y_test, y_pred)
     print('precision:', precision)
     cm_display(y_test, y_pred)
-    # print(classification_report(y_test, y_pred, target_names=class_names))
-
-    xy_plot(women_df)
-    xy_plot(men_df)
-
+    df_all.columns
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
