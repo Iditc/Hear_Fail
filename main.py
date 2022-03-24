@@ -4,11 +4,9 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report
-from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import confusion_matrix, roc_curve, auc, roc_auc_score, ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, ConfusionMatrixDisplay
 from sklearn.metrics import precision_score, f1_score, recall_score, accuracy_score
 from sklearn.ensemble import GradientBoostingClassifier
 from matplotlib import pyplot
@@ -26,7 +24,6 @@ def xy_plot(df):
     plt.ylabel('Count')
     plt.xlabel('Level of serum sodium in the blood (mEq/L)')
     plt.title("Sodium Distribution")
-    #show()
 
 
 def train_randomforest_classifier(X_train, y_train):
@@ -51,7 +48,7 @@ def metrics_scoring(y_test, y_pred):
 
 def cm_display(y_test, y_pred):
     cm = confusion_matrix(y_test, y_pred)
-    cm_display = ConfusionMatrixDisplay(cm).plot()
+    ConfusionMatrixDisplay(cm).plot()
 
 
 def roc_auc(X_test, y_test, clf, threshold):
@@ -90,9 +87,13 @@ def best_threshold(X_test, y_test):
     return thresholds[ix]
 
 
-def change_threshold(X_test, y_test, clf):
+def change_threshold(X_test, y_test):
     threshold = best_threshold(X_test, y_test)
-    y_pred_proba = clf.predict_proba(X_test)[::, 1]
+    return threshold
+
+
+def predict_with_new_threshold(threshold, X, clf):
+    y_pred_proba = clf.predict_proba(X)[::, 1]
     y_pred = [1 if x >= threshold else 0 for x in y_pred_proba]
     return y_pred
 
@@ -140,49 +141,66 @@ def feature_generation(df):
     return all
 
 
-def predict(X_test, y_test, clf):
-    y_pred = change_threshold(X_test, y_test, clf)
-    precision = metrics_scoring(y_test, y_pred)
-    return precision
+def predict(X, y, threshold, clf):
+    # threshold = change_threshold(X_test, y_test, clf)
+    y_pred = predict_with_new_threshold(threshold, X, clf)
+    precision, accuracy = metrics_scoring(y, y_pred)
+    cm_display(y, y_pred)
+    return precision, accuracy
 
 
-# def feature_selection(df_all):
-#     df_all =
+def xai(clf, X, class_names):
+    explainer = shap.Explainer(clf, X)
+    shap_values = explainer(X)
+    # shap.summary_plot(shap_values, X.values, plot_type="bar", class_names=class_names, feature_names=X.columns,
+    #                   max_display=15)
+    # shap.summary_plot(shap_values, X.values, feature_names=X.columns, max_display=11)
+    # shap.dependence_plot(0, shap_values[0], X.values, feature_names=X.columns)
+    row = 2
+    # shap.force_plot(explainer.expected_value[0], shap_values[0][row], X.values[row], feature_names=X.columns)
+    shap.plots.waterfall(shap_values[0], max_display=17)
+
+
+def feature_cleaning_one_value(df):
+    df_to_remove = df.apply(lambda x: x.value_counts().count(), axis=0)
+    df_to_remove = list(df_to_remove[df_to_remove <= 1].index)
+    df.drop(df_to_remove, axis=1, inplace=True)
+    return df
+
+
+def feature_cleaning_all_nan(df):
+    df.dropna(df, axis=1, inplace=True)
+    return df
+
+
+def feature_selection_stay(df, columns_list):
+    df = df[columns_list]
+    return df
+
 
 if __name__ == '__main__':
     df_read = read_file('data/heart_failure_clinical_records_dataset.csv')
-    print(df_read.columns)
     df_all = feature_generation(df_read)
+    columns_to_drop = ['age', 'creatinine_phosphokinase',
+                       'ejection_fraction', 'platelets', 'serum_creatinine', 'serum_sodium',
+                       'time', 'DEATH_EVENT']
+    df_all = feature_selection_stay(df_all, columns_to_drop)
+
     y = df_all[['DEATH_EVENT']].copy()
     X = df_all.drop(['DEATH_EVENT'], axis=1)
     class_names = ['DEATH_EVENT', 'No_DEATH']
+
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
     # clf = train_randomforest_classifier(X_train, y_train)
     clf = train_gradientboosting_classifier(X_train, y_train)
-    precision_test, accuracy_test = predict(X_test, y_test, clf)
-    precision_train, accuracy_train = predict(X_train, y_train, clf)
-    print('precision:', precision_test)
-    print('precision_t:', precision_train)
-    print('accuracy:', accuracy_test)
-    print('accuracy_t:', accuracy_train)
+
+    threshold = change_threshold(X_test, y_test)
+    precision_train, accuracy_train = predict(X_train, y_train, threshold, clf)
+    precision_test, accuracy_test = predict(X_test, y_test, threshold, clf)
+    print('precision test:', precision_test, 'accuracy test:', accuracy_test)
+
     # compute SHAP values
-    explainer = shap.TreeExplainer(clf)
-    shap_values = explainer.shap_values(X)
-    shap.summary_plot(shap_values, X.values, plot_type="bar", class_names=class_names, feature_names=X.columns, max_display=15)
-    #shap.summary_plot(shap_values, X.values, feature_names=X.columns, max_display=11)
+    xai(clf, X, class_names)
 
 
 
-    y_pred = clf.predict(X_test)
-    y_pred_t = clf.predict(X_train)
-    precision = metrics_scoring(y_test, y_pred)
-    precision_t = metrics_scoring(y_train, y_pred_t)
-    print('precision:', precision)
-    print('precision_t:', precision_t)
-    y_pred = change_threshold(X_test, y_test, clf)
-    precision = metrics_scoring(y_test, y_pred)
-    print('precision:', precision)
-    cm_display(y_test, y_pred)
-    df_all.columns
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
