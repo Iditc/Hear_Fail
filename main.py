@@ -71,7 +71,7 @@ def best_threshold(X_test, y_test):
     yhat = yhat[:, 1]  # keep probabilities for the positive outcome only
     fpr, tpr, thresholds = roc_curve(y_test, yhat)  # calculate roc curves
     auc = roc_auc_score(y_test, yhat)
-    print('Aus=' + str(auc))
+    print('Auc=' + str(auc))
     gmeans = np.sqrt(tpr * (1 - fpr))  # calculate the g-mean for each threshold
     ix = np.argmax(gmeans)  # locate the index of the largest g-mean
     print('Best Threshold=%f, G-Mean=%.3f' % (thresholds[ix], gmeans[ix]))
@@ -83,7 +83,7 @@ def best_threshold(X_test, y_test):
     pyplot.ylabel('True Positive Rate')
     pyplot.legend()
     # show the plot
-    pyplot.show()
+    # pyplot.show()
     return thresholds[ix]
 
 
@@ -200,7 +200,7 @@ if __name__ == '__main__':
     print('precision test:', precision_test, 'accuracy test:', accuracy_test)
 
     # compute SHAP values
-    xai(clf, X, class_names)
+    # xai(clf, X, class_names)
 
 
 
