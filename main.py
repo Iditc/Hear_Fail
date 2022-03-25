@@ -10,6 +10,7 @@ from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, Confusio
 from sklearn.metrics import precision_score, f1_score, recall_score, accuracy_score
 from sklearn.ensemble import GradientBoostingClassifier
 from matplotlib import pyplot
+from sklearn.model_selection import GridSearchCV
 import shap
 import numpy as np
 
@@ -33,15 +34,19 @@ def train_randomforest_classifier(X_train, y_train):
 
 
 def train_gradientboosting_classifier(X_train, y_train):
-    clf = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=1, random_state=0).fit(X_train, y_train)
-    clf.fit(X_train, y_train)
-    return clf
+    scores = "precision"
+    parameters = {'n_estimators': [30, 35, 37, 40, 50], 'max_depth': [1, 2, 3, 4]}
+    model = GradientBoostingClassifier(n_estimators=40, learning_rate=1.0, max_depth=1, random_state=0)
+    model = GridSearchCV(model, parameters, scoring="%s_macro" % scores)
+    model.fit(X_train, y_train)
+    return model
+
 
 def metrics_scoring(y_test, y_pred):
-    tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+    # tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+    # f1 = f1_score(y_test, y_pred, average='weighted')
+    # recall = recall_score(y_test, y_pred, average='weighted')
     precision = precision_score(y_test, y_pred, average='weighted')
-    f1 = f1_score(y_test, y_pred, average='weighted')
-    recall = recall_score(y_test, y_pred, average='weighted')
     accuracy = accuracy_score(y_test, y_pred)
     return precision, accuracy
 
@@ -134,23 +139,23 @@ def feature_generation(df):
     women_df = creatinine_th(women_df, threshold_h=192, threshold_l=26)
     men_df = serum_creatinine_th(men_df, threshold_h=1.35, threshold_l=0.74)
     women_df = serum_creatinine_th(women_df, threshold_h=1.04, threshold_l=0.59)
-    all = men_df.append(women_df)
-    all = ejection_fraction_th(all, threshold=40)
-    all = platelets_th(all, threshold_h=450000, threshold_l=150000)
-    all = serum_sodium_th(all, threshold_h=135, threshold_l=145)
-    return all
+    total = men_df.append(women_df)
+    total = ejection_fraction_th(total, threshold=40)
+    total = platelets_th(total, threshold_h=450000, threshold_l=150000)
+    total = serum_sodium_th(total, threshold_h=135, threshold_l=145)
+    return total
 
 
-def predict(X, y, threshold, clf):
-    # threshold = change_threshold(X_test, y_test, clf)
-    y_pred = predict_with_new_threshold(threshold, X, clf)
+def predict(X, y, threshold, model):
+    # threshold = change_threshold(X_test, y_test, model)
+    y_pred = predict_with_new_threshold(threshold, X, model)
     precision, accuracy = metrics_scoring(y, y_pred)
     cm_display(y, y_pred)
     return precision, accuracy
 
 
-def xai(clf, X, class_names):
-    explainer = shap.Explainer(clf, X)
+def xai(model, X, class_names):
+    explainer = shap.Explainer(model, X)
     shap_values = explainer(X)
     # shap.summary_plot(shap_values, X.values, plot_type="bar", class_names=class_names, feature_names=X.columns,
     #                   max_display=15)
@@ -193,6 +198,7 @@ if __name__ == '__main__':
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
     # clf = train_randomforest_classifier(X_train, y_train)
     clf = train_gradientboosting_classifier(X_train, y_train)
+    print(clf.best_params_)
 
     threshold = change_threshold(X_test, y_test)
     precision_train, accuracy_train = predict(X_train, y_train, threshold, clf)
@@ -201,6 +207,3 @@ if __name__ == '__main__':
 
     # compute SHAP values
     # xai(clf, X, class_names)
-
-
-
